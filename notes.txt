@@ -1,0 +1,15 @@
+if number of total letters in remaining words is small... (<= 15)
+guess words that have least frequent letters in them
+ex: shout, scout, spout, stout
+
+for the letters in the set
+count frequency
+sort by least
+find words with the 3 first letters
+
+nhcp
+
+of all the words in allWords
+which have the most in common with remaining possible words
+
+use new list of all possible 5 letter guesses
