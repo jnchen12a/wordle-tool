@@ -1,6 +1,4 @@
-from loguru import logger
 from functools import total_ordering
-from letterFrequencies import frequencies
 from collections import Counter
 import random
 import copy
@@ -25,6 +23,12 @@ class Word():
     
     def getWord(self) -> str:
         return self.word
+    
+def printError(s: str):
+    print(f'\033[31mERROR: {s}\033[0m')
+
+def printInfo(s: str):
+    print(f'\033[35mINFO: {s}\033[0m')
 
 def readWordleFile(path='./wordle-list.txt') -> list:
     try:
@@ -32,7 +36,7 @@ def readWordleFile(path='./wordle-list.txt') -> list:
             lines = file.readlines()
             lines = lines[1:-1]
     except:
-        logger.error(f'ERROR: {path} is not valid.')
+        printError(f'{path} is not valid.')
         exit(1)
     
     newList = []
@@ -47,7 +51,7 @@ def readWordBank(path='./words.txt') -> list:
         with open(path) as file:
             lines = file.readlines()
     except:
-        logger.error(f'Error: {path} is not valid.')
+        printError(f'{path} is not valid.')
         exit(1)
 
     res = [Word(''.join(c for c in line if c.isalpha())) for line in lines]
@@ -89,11 +93,11 @@ def getYellow() -> str:
     ipt = input('Type the letters (seperated by -) that appear in the word: ')
     ipt = ipt.lower()
     if len(ipt) != 5:
-        logger.error('Error: Length of input must be 5.')
+        printError('Length of input must be 5.')
         exit(1)
     for l in ipt:
         if l != '-' and not l.isalpha():
-            logger.error('Error: input characters must be - or a letter.')
+            printError('Input characters must be - or a letter.')
             exit(1)
     return ipt
 
@@ -101,7 +105,7 @@ def getGray(ipt: str) -> list:
     l = [c for c in ipt]
     for letter in l:
         if not letter.isalpha():
-            logger.error('Error: input characters must be a letter.')
+            printError('Input characters must be a letter.')
             exit(1)
     return l
 
@@ -109,11 +113,11 @@ def getGreen() -> str:
     ipt = input('Type the position of the letters (with - for unknown) that appear in the word: ')
     ipt = ipt.lower()
     if len(ipt) != 5:
-        logger.error('Error: Length of input must be 5.')
+        printError('Length of input must be 5.')
         exit(1)
     for l in ipt:
         if l != '-' and not l.isalpha():
-            logger.error('Error: input characters must be - or a letter')
+            printError('Input characters must be - or a letter')
             exit(1)
     return ipt
 
@@ -247,14 +251,19 @@ if __name__ == '__main__':
         print('1. New game')
         print('2. Exit tool')
         c = input('Enter clues: ')
+
+        yellowGreenOverride = False
+        if c[0] == '!':
+            c = c[1:]
+            yellowGreenOverride = True
         if len(c) > 5:
-            logger.error('ERROR: Input should be at most 5 characters long.')
-            logger.error(f'ERROR: Input is actually {len(c)} characters long.')
+            printError('Input should be at most 5 characters long.')
+            printError(f'Input is actually {len(c)} characters long.')
             continue
         good = True
         for char in c:
             if (not char.isalpha()) and (char not in acceptedChars):
-                logger.error(f'ERROR: {char} is not accepted here.')
+                printError(f'{char} is not accepted here.')
                 good = False
                 break
         if not good:
@@ -271,7 +280,7 @@ if __name__ == '__main__':
         elif c == '2':
             print('Thank you for using the Wordle Tool!')
             break
-        if '-' in c:
+        if '-' in c or yellowGreenOverride:
             print('\033[34mYellow Green detected.\033[0m')
             yellowStr, greenStr, letters = getYellowGreen(c)
             words = checkYellow(yellowStr, words)
@@ -281,10 +290,23 @@ if __name__ == '__main__':
             letters = getGray(c)
             words = checkGray(letters, words)
 
+        if len(words) == 0:
+            printInfo('No more valid words remain.')
+            printInfo('This could be due to an incorrect user input, the target word not in the database, or an error in the code (unlikely).')
+            printInfo('Restarting game...')
+            print('\033[31mNew game started!\033[0m')
+            words = allWords[:]
+            newWordBank = wordBank[:]
+            prevPoolSize = len(allWords)
+            greenPositions = []
+            print('\033[33mSuggested first words: ')
+            printWordListOrder(wordBank)
+            continue
+        
         print(f'\033[32mPossible words: (reduced pool by {100 - ((len(words) / prevPoolSize) * 100):.2f}%)')
         prevPoolSize = len(words)
         printWordListRandom(words)
-        if len(words) <= 2:
+        if prevPoolSize <= 2:
             print('\033[31mWordle has been solved!')
             print('New game started!\033[0m')
             words = allWords[:]
@@ -293,5 +315,5 @@ if __name__ == '__main__':
             greenPositions = []
             print('\033[33mSuggested first words: ')
             printWordListOrder(wordBank)
-        elif len(words) != 2:
+        else:
             printBonusWords(words, wordBank, greenPositions)
