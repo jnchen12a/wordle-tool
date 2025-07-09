@@ -3,26 +3,13 @@ from functools import total_ordering
 from letterFrequencies import frequencies
 from collections import Counter
 import random
+import copy
 
 @total_ordering
 class Word():
     def __init__(self, word: str) -> None:
         self.word = word
-        self.calculateScore(set())
-    
-    def calculateScore(self, guessed: set) -> None:
-        s = set(self.word)
-        vowels = set('aeiou')
-        score = 0
-        for letter in s:
-            if letter in guessed:
-                continue
-            if letter in vowels:
-                score += 2
-            else:
-                score += 1
-            score += frequencies[letter] * 0.001
-        self.score = score
+        self.score = 0
     
     def __eq__(self, other):
         return self.score == other.score
@@ -39,7 +26,7 @@ class Word():
     def getWord(self) -> str:
         return self.word
 
-def readWordleFile(path='./wordle-list') -> list:
+def readWordleFile(path='./wordle-list.txt') -> list:
     try:
         with open(path) as file:
             lines = file.readlines()
@@ -165,17 +152,16 @@ def printWordListRandom(words: list) -> None:
 
 def printWordListOrder(words: list) -> None:
     end = '...\n' if len(words) > 10 else '\n'
-    print(f'({len(words)}): ', end='')
     for i, word in enumerate(words):
         # last one
         if i == (len(words) - 1) or i == 10:
-            print(word.getWord(), end=end)
+            print(word.getWord(), f'({word.score:.3f})', end=end)
             break
         else:
-            print(word.getWord(), end=', ')
+            print(word.getWord(), f'({word.score:.3f})', end=', ')
     print('\033[0m', end='')
 
-def checkGreen(posString: str, words: list) -> list:
+def checkGreen(posString: str, words: list) -> tuple:
     res = []
     positions = dict()
     for i, s in enumerate(posString):
@@ -191,7 +177,7 @@ def checkGreen(posString: str, words: list) -> list:
         if add:
             res.append(word)
 
-    return res
+    return res, list(positions.keys())
 
 def checkGray(letters: list, words: list) -> list:
     res = []
@@ -207,13 +193,7 @@ def checkGray(letters: list, words: list) -> list:
     
     return res
 
-def recalculateScores(words: list, guessed: set) -> list:
-    for word in words:
-        word.calculateScore(guessed)
-
-    return sorted(words, reverse=True)
-
-def printBonusWords(words: list, wordBank: list, guessed: set) -> None:
+def printBonusWords(words: list, wordBank: list, greenPositions: list) -> list:
     # words is list of words it could be
     # allWords is entire word pool
     # guessed is all the letters we've already guessed
@@ -221,54 +201,48 @@ def printBonusWords(words: list, wordBank: list, guessed: set) -> None:
     for word in words:
         w = word.getWord()
         pool.update(w)
-    # s is remaining pool of letters in all possible words
+    total = sum(pool.values())
+    relativeFrequency = {k: (v / total) for k, v in pool.items()}
+    # s is remaining pool of letters in all possible words, ignore the greenPositions
     s = set()
     for word in words:
-        s.update(word.getWord())
+        actualWord = word.getWord()
+        for i in range(len(actualWord)):
+            if i not in greenPositions:
+                s.update(actualWord[i])
 
     bonusWords = []
-    tempWordBank = wordBank[:]
+    tempWordBank = copy.deepcopy(wordBank)
     for word in tempWordBank:
         w = set(word.getWord())
-        score = len(s & w)
-        score -= len(w & guessed)
+        score = 0
+        for letter in s & w:
+            score += relativeFrequency[letter]
 
-        if score > 3:
-            word.score = score
-            bonusWords.append(word)
+        word.score = score
+        bonusWords.append(word)
 
     
     bonusWords = sorted(bonusWords, reverse=True)
     if len(bonusWords) != 0:
-        print('\033[33mOther words that might be good guesses: ')
+        print('\033[33mWords that might be good guesses: ')
         printWordListOrder(bonusWords)
 
-def shortenWordBank(newWordBank: list, goodWords: list) -> list:
-    res = []
-    for word in goodWords:
-        add = True
-        for bankWord in newWordBank:
-            if word.getWord() == bankWord.getWord():
-                add = False
-                break
-        
-        if add:
-            res.append(word)
-
-    return res
+    return bonusWords
 
 if __name__ == '__main__':
     allWords = readWordleFile()
     wordBank = readWordBank()
 
     print('Welcome to the Wordle Solver!')
-    print('\033[33mSuggested first words: ')
-    printWordListOrder(wordBank)
+    print(f'Number of words in word bank: {len(allWords)}')
+    wordBank = printBonusWords(allWords, wordBank, [])
 
     words = allWords[:]
-    newWordBank = wordBank
-    guessed = set()
+    newWordBank = wordBank[:]
     acceptedChars = set('12-')
+    prevPoolSize = len(allWords)
+    greenPositions = []
     while True:
         print('1. New game')
         print('2. Exit tool')
@@ -287,42 +261,37 @@ if __name__ == '__main__':
             continue
         if c == '1':
             words = allWords[:]
-            guessed = set()
-            newWordBank = wordBank
-            print('New game started!')
-            print('\033[33mOSuggested first words: ')
-            printWordListOrder(newWordBank)
+            newWordBank = wordBank[:]
+            prevPoolSize = len(allWords)
+            greenPositions = []
+            print('\033[31mNew game started!')
+            print('\033[33mSuggested first words: ')
+            printWordListOrder(wordBank)
             continue
         elif c == '2':
             print('Thank you for using the Wordle Tool!')
             break
-        elif '-' in c:
+        if '-' in c:
             print('\033[34mYellow Green detected.\033[0m')
             yellowStr, greenStr, letters = getYellowGreen(c)
             words = checkYellow(yellowStr, words)
-            words = checkGreen(greenStr, words)
-            newWordBank = shortenWordBank(newWordBank, words)
-            for letter in letters:
-                guessed.add(letter)
-            words = recalculateScores(words, guessed)
-        elif '' != c:
+            words, greenPositions = checkGreen(greenStr, words)
+        else:
             print('\033[34mGray detected.\033[0m')
             letters = getGray(c)
             words = checkGray(letters, words)
-            newWordBank = shortenWordBank(newWordBank, words)
-            for letter in letters:
-                guessed.add(letter)
-            words = recalculateScores(words, guessed)
 
-        print('\033[32mPossible words:')
+        print(f'\033[32mPossible words: (reduced pool by {100 - ((len(words) / prevPoolSize) * 100):.2f}%)')
+        prevPoolSize = len(words)
         printWordListRandom(words)
-        if len(words) == 1:
-            print('Wordle has been solved!')
-            print('New game started!')
+        if len(words) <= 2:
+            print('\033[31mWordle has been solved!')
+            print('New game started!\033[0m')
             words = allWords[:]
-            guessed = set()
-            newWordBank = wordBank
-            print('\033[33mOSuggested first words: ')
-            printWordListOrder(newWordBank)
+            newWordBank = wordBank[:]
+            prevPoolSize = len(allWords)
+            greenPositions = []
+            print('\033[33mSuggested first words: ')
+            printWordListOrder(wordBank)
         elif len(words) != 2:
-            printBonusWords(words, newWordBank, guessed)
+            printBonusWords(words, wordBank, greenPositions)
