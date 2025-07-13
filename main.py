@@ -250,45 +250,57 @@ if __name__ == '__main__':
     while True:
         print('1. New game')
         print('2. Exit tool')
-        c = input('Enter clues: ')
+        clues = input('Enter clues: ')
+        clues = clues.split(',')
+        clues = [s.strip() for s in clues]
+        newGame = False
+        endTool = False
 
-        yellowGreenOverride = False
-        if c[0] == '!':
-            c = c[1:]
-            yellowGreenOverride = True
-        if len(c) > 5:
-            printError('Input should be at most 5 characters long.')
-            printError(f'Input is actually {len(c)} characters long.')
-            continue
-        good = True
-        for char in c:
-            if (not char.isalpha()) and (char not in acceptedChars):
-                printError(f'{char} is not accepted here.')
-                good = False
+        for clue in clues:
+            yellowGreenOverride = False
+            if clue[0] == '!':
+                clue = clue[1:]
+                yellowGreenOverride = True
+            if len(clue) > 5:
+                printError('Input should be at most 5 characters long.')
+                printError(f'Input is actually {len(clue)} characters long.')
+                continue
+            good = True
+            for char in clue:
+                if (not char.isalpha()) and (char not in acceptedChars):
+                    printError(f'{char} is not accepted here.')
+                    good = False
+                    break
+            if not good:
+                continue
+            if clue == '1':
+                words = allWords[:]
+                newWordBank = wordBank[:]
+                prevPoolSize = len(allWords)
+                greenPositions = []
+                print('\033[31mNew game started!')
+                print('\033[33mSuggested first words: ')
+                printWordListOrder(wordBank)
+                newGame = True
                 break
-        if not good:
+            elif clue == '2':
+                print('Thank you for using the Wordle Tool!')
+                endTool = True
+                break
+            if '-' in clue or yellowGreenOverride:
+                print('\033[34mYellow Green detected.\033[0m')
+                yellowStr, greenStr, letters = getYellowGreen(clue)
+                words = checkYellow(yellowStr, words)
+                words, greenPositions = checkGreen(greenStr, words)
+            else:
+                print('\033[34mGray detected.\033[0m')
+                letters = getGray(clue)
+                words = checkGray(letters, words)
+                
+        if newGame:
             continue
-        if c == '1':
-            words = allWords[:]
-            newWordBank = wordBank[:]
-            prevPoolSize = len(allWords)
-            greenPositions = []
-            print('\033[31mNew game started!')
-            print('\033[33mSuggested first words: ')
-            printWordListOrder(wordBank)
-            continue
-        elif c == '2':
-            print('Thank you for using the Wordle Tool!')
+        if endTool:
             break
-        if '-' in c or yellowGreenOverride:
-            print('\033[34mYellow Green detected.\033[0m')
-            yellowStr, greenStr, letters = getYellowGreen(c)
-            words = checkYellow(yellowStr, words)
-            words, greenPositions = checkGreen(greenStr, words)
-        else:
-            print('\033[34mGray detected.\033[0m')
-            letters = getGray(c)
-            words = checkGray(letters, words)
 
         if len(words) == 0:
             printInfo('No more valid words remain.')
