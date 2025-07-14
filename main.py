@@ -218,10 +218,17 @@ def printBonusWords(words: list, wordBank: list, greenPositions: list) -> list:
     bonusWords = []
     tempWordBank = copy.deepcopy(wordBank)
     for word in tempWordBank:
-        w = set(word.getWord())
+        aw = word.getWord()
+        w = set(aw)
         score = 0
         for letter in s & w:
             score += relativeFrequency[letter]
+
+        for possibleWord in words:
+            pw = possibleWord.getWord()
+            if aw == pw:
+                score += 0.001
+                break
 
         word.score = score
         bonusWords.append(word)
