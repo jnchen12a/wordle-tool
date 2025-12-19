@@ -46,7 +46,7 @@ def readWordleFile(path='./wordle-list.txt') -> list:
     newList = sorted(newList, reverse=True)
     return newList
 
-def readWordBank(path='./words.txt') -> list:
+def readWordBank(path='./wordle-allowed-guesses.txt') -> list:
     try:
         with open(path) as file:
             lines = file.readlines()
@@ -246,6 +246,12 @@ if __name__ == '__main__':
     wordBank = readWordBank()
 
     print('Welcome to the Wordle Solver!')
+    print('-----------------------------')
+    print('Clue Types:')
+    print('Gray clue: abc (enter in letters that are gray, in any order)')
+    print('Yellow Green clue: A-c-- (enter green clues as upper-case; yellow, lower-case; gray, -; in order)')
+    print('Enter multiple clues at once, seperated by a comma (recommended, typically you recieve two clues per guess).')
+    print('-----------------------------')
     print(f'Number of words in word bank: {len(allWords)}')
     wordBank = printBonusWords(allWords, wordBank, [])
 
@@ -254,6 +260,7 @@ if __name__ == '__main__':
     acceptedChars = set('12-')
     prevPoolSize = len(allWords)
     greenPositions = []
+    originalWordBankSize = len(allWords)
     while True:
         print('1. New game')
         print('2. Exit tool')
@@ -322,9 +329,11 @@ if __name__ == '__main__':
             printWordListOrder(wordBank)
             continue
         
-        print(f'\033[32mPossible words: (reduced pool by {100 - ((len(words) / prevPoolSize) * 100):.2f}%)')
+        percentReduced = len(words) / prevPoolSize
+        print(f'\033[32mPossible words: (reduced pool by ~{100 - (percentReduced * 100):.2f}%)')
         prevPoolSize = len(words)
         printWordListRandom(words)
+        print(f'\033[32mIn total, reduced original pool size by: ~{100 - ((len(words) / originalWordBankSize) * 100):.2f}%')
         if prevPoolSize <= 2:
             print('\033[31mWordle has been solved!')
             print('New game started!\033[0m')
